@@ -17,7 +17,7 @@ extern char **environ;
 
 String readWord();
 Array readCommand();
-int searchForCommand(char *str);
+int isCommand(char *str);
 void processMgmt(Array command);
 void printCommand(Array command);
 
@@ -72,28 +72,21 @@ void processMgmt(Array command){
     return;
   }
   else if (process==0){
-    char **args;
-    /*
-    char c='\0';
-    
-    printf("c:");
-    fflush(stdout);
-    
-    while (c!='\n'){
-      printf("%c",c);
-      read(0, &c, 1);
-    }
-    printf(" is what I read, now I'm exiting.\n");
-    exit(0);
-    */
-    
     if (command.c[0].str[0]!='/'){
       //Relative path
-      //command.c[0].str="/home/twoodside/CSCI4500/A1-Terminal/a.out";
-      //"/bin/"
-      char *temp = malloc(sizeof(char)*(command.c[0].length+6));
-      temp = strcpy(temp,"/bin/");
-      command.c[0].str = strcat(temp,command.c[0].str);
+      char *pathList = getenv("PATH");
+      char *path = strtok(pathList,":");
+      char *temp;
+      do{
+        temp = malloc(sizeof(char)*(command.c[0].length+strlen(path)));
+        temp = strcpy(temp,path);
+        strcat(temp,"/");
+        strcat(temp,command.c[0].str);
+      } while (!isCommand(temp) && (path=strtok(NULL,":"))!=NULL );
+      
+      if (path!=NULL){
+        command.c[0].str = temp;
+      }
     }
     
     int argc=command.length+1;
@@ -181,7 +174,7 @@ void processManagement(){
 */
 
 
-int searchForCommand(char* location){
+int isCommand(char* location){
   return access(location,X_OK)==0;
 }
 
