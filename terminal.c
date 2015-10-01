@@ -18,8 +18,9 @@ extern char **environ;
 String readWord();
 Array readCommand();
 int isCommand(char *str);
-void processMgmt(Array command);
+int processMgmt(Array command);
 void printCommand(Array command);
+Array clearInput(Array command);
 
 int main(char** argv, int argc) {
   Array command=(Array){NULL,0};
@@ -34,16 +35,45 @@ int main(char** argv, int argc) {
     /*printf("Read %d words: ",command.length);
     printCommand(command);*/
     
-    if (strcmp(command.c[0].str, "exit") != 0){
-      processMgmt(command);
-    }
-    else{
+    if (strcmp(command.c[0].str, "exit") == 0){
       break;
     }
+    
+    int status = processMgmt(command);	
+    
+    if ( isBooleanOperator(command.c[command.length-1].str) ){
+      switch (command.c[command.length-1].str[0]){
+        case '&':
+          if (status!=0){
+            command=clearInput(command);
+          }
+          break;
+        case '|':
+          if (status==0){
+            command=clearInput(command);
+          }
+          break;
+        case ';':
+          //Don't clear input
+          break;
+      }
+    }
+    
   }
   
-  printf("FINISHED\n");
+  printf("Good bye.\n");
   return 0;
+}
+
+Array clearInput(Array command){
+  char c='\0';
+  while (c!='\n'){
+    read(0,&c,1);
+  }
+  
+  command.c=NULL;
+  command.length=0;
+  return command;
 }
 
 void printCommand(Array command){
@@ -66,10 +96,10 @@ int isBooleanOperator(char *str){
   return 0;
 }
 
-void processMgmt(Array command){
+int processMgmt(Array command){
   pid_t process = fork();
   if (process<0){
-    return;
+    return (int)process;
   }
   else if (process==0){
     if (command.c[0].str[0]!='/'){
@@ -112,10 +142,11 @@ void processMgmt(Array command){
   else if (process>0){
     int status;
     waitpid(process,&status,0);
-    /*printf("Child return status: %d\n",status);
-    printf("Command: ");
-    printCommand(command);*/
+    
+    return status;
   }
+  
+  return -1;
 }
 
 /*
