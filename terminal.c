@@ -4,110 +4,171 @@
 #include <unistd.h>
 
 typedef struct{
-  char* str;
+  char *str;
   int length;
 } String;
 
+typedef struct{
+  String *c;
+  int length;
+} Array;
+
 String readWord();
-String* readCommand();
+Array readCommand();
 int searchForCommand(char *str);
+void processMgmt(Array command);
+void printCommand(Array command);
 
 int main(char** argc, int argv) {
-  String *command=NULL;
+  Array command=(Array){NULL,0};
   
-  int stopCommand=0;
-  int stopWord=0;
-  int i;
-  int status;
-  
-  while (command == NULL || strcmp(command[0].str, "exit") != 0) {
-	pid_t process;
-	printf(">");
-	fflush(stdout);
+  while (1) {
+    if ( command.c==NULL || !isBooleanOperator(command.c[command.length-1].str) ){
+      printf(">");
+      fflush(stdout);
+    }
     command = readCommand();
     
-	process = fork();
-	
-	if (process<0){
-		continue;
-	}
-	else if (process==0){
-		//This is the child
-		char c='\0';
-		printf("this is the child\n");
-		
-		if (command[0].str[0]=='/'){
-			int commandFound = searchForCommand(command[0].str);
-			printf( "%d\n",commandFound );
-		}
-		else{
-			char *newCommand = malloc(sizeof(char)*(strlen(command[0].str)+16)); //Something about this strcat fails
-			strcpy(newCommand,"/usr/local/bin/");
-			newCommand = strcat(newCommand,command[0].str);
-			
-			printf("%s\n",newCommand);
-			
-			int commandFound = searchForCommand(newCommand);
-			printf( "%d\n",commandFound );
-		}
-		
-		printf("c:");
-		
-		fflush(stdout);
-		
-		while (c!='\n'){
-			read(0, &c, 1);
-		}
-		
-		if (strcmp(command[0].str,"exit")==0){
-			printf("exiting with 0 status\n");
-			fflush(stdout);
-			exit(0);
-		}
-		else{
-			printf("exiting with 1 status\n");
-			fflush(stdout);
-			exit(1);
-		}
-	}
-	else{
-		//Parent
-		int status;
-		waitpid(process,&status,0); //This isn't waiting for the child process to exit?!
-		printf(">status: %d\n",status);
-	}
-	
-	
-	
-	/*
-    printf("command: ");
-    for (i=0;command[i].str!=NULL;i++){
-      printf("%s ",command[i].str);
+    /*printf("Read %d words: ",command.length);
+    printCommand(command);*/
+    
+    if (strcmp(command.c[0].str, "exit") != 0){
+      processMgmt(command);
     }
-    printf("\n");
-	*/
+    else{
+      break;
+    }
   }
   
   printf("FINISHED\n");
   return 0;
 }
 
-int searchForCommand(char* location){
-	return access(location,F_OK);
+void printCommand(Array command){
+  int i;
+  
+  for (i=0;i<command.length;i++){
+    printf("%s ",command.c[i].str);
+  }
+  printf("\n");
 }
 
-String* readCommand(){
-  String *command;
-  String word=(String){NULL,0};
-  int maxCommandSize = 8;
+int isBooleanOperator(char *str){
+  if (
+    strcmp(str,"&&")==0 ||
+    strcmp(str,"||")==0 ||
+    strcmp(str,";")==0
+  ){
+    return 1;
+  }
+  return 0;
+}
+
+void processMgmt(Array command){
+  pid_t process = fork();
+  if (process<0){
+    return;
+  }
+  else if (process==0){
+    char c='\0';
+    
+    printf("c:");
+    fflush(stdout);
+    
+    while (c!='\n'){
+      printf("%c",c);
+      read(0, &c, 1);
+    }
+    printf(" is what I read, now I'm exiting.\n");
+    exit(0);
+    
+    
+    
+  }
+  else if (process>0){
+    int status;
+    printf("This is the parent, and I'm waiting for the child.\n");
+    waitpid(process,&status,0);
+    printf("Child return status: %d\n",status);
+    printf("The command I executed was:\n");
+    int i;
+    for (i=0;i<command.length;i++){
+      printf("%s ",command.c[i].str);
+    }
+    printf("\n");
+  }
+}
+
+/*
+void processManagement(){
+  process = fork();
+    
+    if (process<0){
+      continue;
+    }
+    else if (process==0){
+      //This is the child
+      char c='\0';
+      printf("this is the child\n");
+      
+      if (command[0].str[0]=='/'){
+        int commandFound = searchForCommand(command[0].str);
+        printf( "%d\n",commandFound );
+      }
+      else{
+        char *newCommand = malloc(sizeof(char)*(strlen(command[0].str)+16)); //Something about this strcat fails
+        strcpy(newCommand,"/usr/local/bin/");
+        newCommand = strcat(newCommand,command[0].str);
+        
+        printf("%s\n",newCommand);
+        
+        int commandFound = searchForCommand(newCommand);
+        printf( "%d\n",commandFound );
+      }
+      
+      printf("c:");
+      
+      fflush(stdout);
+      
+      while (c!='\n'){
+        read(0, &c, 1);
+      }
+      
+      if (strcmp(command[0].str,"exit")==0){
+        printf("exiting with 0 status\n");
+        fflush(stdout);
+        exit(0);
+      }
+      else{
+        printf("exiting with 1 status\n");
+        fflush(stdout);
+        exit(1);
+      }
+    }
+    else{
+      //Parent
+      int status;
+      waitpid(process,&status,0); //This isn't waiting for the child process to exit?!
+      printf(">status: %d\n",status);
+    }
+}
+*/
+
+
+int searchForCommand(char* location){
+  return access(location,F_OK);
+}
+
+Array readCommand(){
   int wordCounter=0;
-  command = calloc(maxCommandSize,sizeof(String));
   int stopCommand=0;
+  int maxCommandSize=8;
+  String word=(String){NULL,0};
+  Array command=(Array){NULL,0};
+  command.c = calloc(maxCommandSize,sizeof(String));
   
   while ( word.str==NULL || !stopCommand  ){
     word = readWord();
-    
-    
     
     if (word.str[word.length-1]=='\n'){
       stopCommand=2;
@@ -121,13 +182,13 @@ String* readCommand(){
     
     if (wordCounter==maxCommandSize){
       maxCommandSize*=2;
-      command=realloc(command,maxCommandSize*sizeof(String));
+      command.c=realloc(command.c,maxCommandSize*sizeof(String));
     }
     
-    command[wordCounter++]=word;
-    
-    //printf("word: %s\n",word.str);
+    command.c[wordCounter++]=word;
   }
+  command.length=wordCounter;
+  
   return command;
 }
 
