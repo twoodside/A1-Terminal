@@ -13,13 +13,15 @@ typedef struct{
   int length;
 } Array;
 
+extern char **environ;
+
 String readWord();
 Array readCommand();
 int searchForCommand(char *str);
 void processMgmt(Array command);
 void printCommand(Array command);
 
-int main(char** argc, int argv) {
+int main(char** argv, int argc) {
   Array command=(Array){NULL,0};
   
   while (1) {
@@ -70,6 +72,8 @@ void processMgmt(Array command){
     return;
   }
   else if (process==0){
+    char **args;
+    /*
     char c='\0';
     
     printf("c:");
@@ -81,21 +85,43 @@ void processMgmt(Array command){
     }
     printf(" is what I read, now I'm exiting.\n");
     exit(0);
+    */
     
+    if (command.c[0].str[0]!='/'){
+      //Relative path
+      //command.c[0].str="/home/twoodside/CSCI4500/A1-Terminal/a.out";
+      //"/bin/"
+      char *temp = malloc(sizeof(char)*(command.c[0].length+6));
+      temp = strcpy(temp,"/bin/");
+      command.c[0].str = strcat(temp,command.c[0].str);
+    }
     
+    int argc=command.length+1;
+    if (isBooleanOperator(command.c[command.length-1].str)){
+      argc--;
+    }
     
+    {
+      char *args[argc];
+      int i;
+      
+      for (i=0;i<argc-1;i++){
+        args[i]=command.c[i].str;
+      }
+      args[i]=0;
+      
+      int status = execve(command.c[0].str,args,environ);
+    }
+    
+    printf("%s: command not found\n",command.c[0].str);
+    exit(-1);
   }
   else if (process>0){
     int status;
-    printf("This is the parent, and I'm waiting for the child.\n");
     waitpid(process,&status,0);
-    printf("Child return status: %d\n",status);
-    printf("The command I executed was:\n");
-    int i;
-    for (i=0;i<command.length;i++){
-      printf("%s ",command.c[i].str);
-    }
-    printf("\n");
+    /*printf("Child return status: %d\n",status);
+    printf("Command: ");
+    printCommand(command);*/
   }
 }
 
@@ -156,7 +182,7 @@ void processManagement(){
 
 
 int searchForCommand(char* location){
-  return access(location,F_OK);
+  return access(location,X_OK)==0;
 }
 
 Array readCommand(){
