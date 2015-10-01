@@ -3,11 +3,14 @@
 #include <string.h>
 #include <unistd.h>
 
+
+//Wrapper for a char array to make returning string length easier
 typedef struct{
   char *str;
   int length;
 } String;
 
+//Wrapper for an array of strings to make returning the number of elements easier
 typedef struct{
   String *c;
   int length;
@@ -15,6 +18,7 @@ typedef struct{
 
 extern char **environ;
 
+//
 String readWord();
 Array readCommand();
 int isCommand(char *str);
@@ -22,46 +26,63 @@ int processMgmt(Array command);
 void printCommand(Array command);
 Array clearInput(Array command);
 
+
+/**
+Main function
+
+argv - command line arguments
+argc - number of arguments
+**/
 int main(char** argv, int argc) {
   Array command=(Array){NULL,0};
   
   while (1) {
+    //Write a user prompt, unless there's multiple simple commands in one line of input 
     if ( command.c==NULL || !isBooleanOperator(command.c[command.length-1].str) ){
-      printf(">");
-      fflush(stdout);
+      write(0,">",1);
     }
+    
+    //Read the command in
     command = readCommand();
     
-    /*printf("Read %d words: ",command.length);
-    printCommand(command);*/
-    
+    //If exit is the command called, quit running
     if (strcmp(command.c[0].str, "exit") == 0){
       break;
     }
     
+    //Run the process
     int status = processMgmt(command);	
     
-    if ( isBooleanOperator(command.c[command.length-1].str) ){
+    int consume=1;
+    //If there's a boolean operator, decide if you need to ignore the next command
+    while ( isBooleanOperator(command.c[command.length-1].str)  && consume){
       switch (command.c[command.length-1].str[0]){
         case '&':
           if (status!=0){
-            command=clearInput(command);
+            command=readCommand();
+          }
+          else{
+            consume=0;
           }
           break;
         case '|':
           if (status==0){
-            command=clearInput(command);
+            command=readCommand();
+          }
+          else{
+            consume=0;
           }
           break;
         case ';':
-          //Don't clear input
+          consume=0;
+          
           break;
       }
     }
     
   }
   
-  printf("Good bye.\n");
+  write(0,"Good bye.\n",10);
   return 0;
 }
 
@@ -73,9 +94,11 @@ Array clearInput(Array command){
   
   command.c=NULL;
   command.length=0;
+  
   return command;
 }
 
+//This is a debugging function, so I'm not worried about using the printf command here.
 void printCommand(Array command){
   int i;
   
@@ -136,7 +159,9 @@ int processMgmt(Array command){
       int status = execve(command.c[0].str,args,environ);
     }
     
-    printf("%s: command not found\n",command.c[0].str);
+    write(0,command.c[0].str,command.c[0].length);
+    write(0,": command not found\n",20);
+    
     exit(-1);
   }
   else if (process>0){
@@ -148,62 +173,6 @@ int processMgmt(Array command){
   
   return -1;
 }
-
-/*
-void processManagement(){
-  process = fork();
-    
-    if (process<0){
-      continue;
-    }
-    else if (process==0){
-      //This is the child
-      char c='\0';
-      printf("this is the child\n");
-      
-      if (command[0].str[0]=='/'){
-        int commandFound = searchForCommand(command[0].str);
-        printf( "%d\n",commandFound );
-      }
-      else{
-        char *newCommand = malloc(sizeof(char)*(strlen(command[0].str)+16)); //Something about this strcat fails
-        strcpy(newCommand,"/usr/local/bin/");
-        newCommand = strcat(newCommand,command[0].str);
-        
-        printf("%s\n",newCommand);
-        
-        int commandFound = searchForCommand(newCommand);
-        printf( "%d\n",commandFound );
-      }
-      
-      printf("c:");
-      
-      fflush(stdout);
-      
-      while (c!='\n'){
-        read(0, &c, 1);
-      }
-      
-      if (strcmp(command[0].str,"exit")==0){
-        printf("exiting with 0 status\n");
-        fflush(stdout);
-        exit(0);
-      }
-      else{
-        printf("exiting with 1 status\n");
-        fflush(stdout);
-        exit(1);
-      }
-    }
-    else{
-      //Parent
-      int status;
-      waitpid(process,&status,0); //This isn't waiting for the child process to exit?!
-      printf(">status: %d\n",status);
-    }
-}
-*/
-
 
 int isCommand(char* location){
   return access(location,X_OK)==0;
